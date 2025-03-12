@@ -1,0 +1,8 @@
+[package]
+name = "deniable-auth"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crypto-bigint = "0.6.1"
+crypto-primes = "0.6.2"
