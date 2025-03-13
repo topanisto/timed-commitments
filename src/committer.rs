@@ -58,7 +58,6 @@ impl Committer {
         let g = self.generate_g();
         let u = self.generate_u(g);
         let S = self.generate_S();
-        let W = self.generate_W(g);
 
         TimedCommitment {
             committer: self,
