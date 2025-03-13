@@ -6,7 +6,7 @@ use crypto_bigint::{
 use crypto_primes::{generate_prime, is_prime};
 
 use crate::{
-    get_lsb, get_order,
+    get_order,
     protocol::{BITS, DEFAULT_B, DEFAULT_K},
     totient_slow, u256_exp_mod,
 };
@@ -58,9 +58,12 @@ impl Committer {
         }
 
         let checked_n = Checked::new(p1) * Checked::new(p2);
+
         let n = NonZero::new((checked_n.0).unwrap()).unwrap();
+        println!("n: {:?}", n); // 
 
         let h = U256::random_mod(&mut OsRng, &n);
+        println!("h: {:?}", h); // 
         let g = Self::generate_g(&h, &n, p1, p2);
 
         Self {
@@ -105,16 +108,19 @@ impl Committer {
             * (Checked::new(p2) - Checked::new(U256::ONE));
         let totient = NonZero::new(checked_totient.0.unwrap()).unwrap();
 
+        println!("totient {:?}", totient);
+
         // qi^n
         let q_array: Vec<U256> = (1..DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
                 true => {
-                    let a = U256::from(x.pow(BITS)) % totient;
+                    let a = u256_exp_mod(&U256::from(x), &U256::from(BITS), &totient);
                     Some(a)
                 }
                 false => None,
             })
             .collect();
+        println!("qarray {:?}", q_array);
 
         let exponent = q_array
             .iter()
@@ -134,7 +140,9 @@ impl Committer {
         // exponentiating
         let totient = self.totient_n();
         let a = (0..self.k).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
-        u256_exp_mod(g, &a, &self.n)
+        let u = u256_exp_mod(g, &a, &self.n);
+        println!("generated u!");
+        u
     }
 
     fn generate_S(&self) -> Vec<bool> {
