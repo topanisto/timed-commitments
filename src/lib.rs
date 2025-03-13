@@ -9,7 +9,7 @@ pub use utils::*;
 pub use verifier::*;
 #[cfg(test)]
 mod tests {
-    use crypto_bigint::U256;
+    use crypto_bigint::{NonZero, U256};
 
     use super::*;
     #[test]
@@ -28,6 +28,17 @@ mod tests {
         let k = get_order(&a, p, q);
         println!("{k}");
         assert!(k == U256::from(48u32));
+    }
+
+    #[test]
+    fn utils_u256_exp_mod() {
+        let g = U256::from(29u32);
+        let x = U256::from(100u32);
+        let n = NonZero::new(U256::from(11u32)).unwrap();
+
+        let a = u256_exp_mod(&g, &x, &n);
+        println!("{a}");
+        assert!(a == U256::from(1u32));
     }
 
     #[test]

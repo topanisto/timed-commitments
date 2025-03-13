@@ -66,7 +66,6 @@ pub fn u256_exp_mod(g: &U256, x: &U256, n: &NonZero<U256>) -> U256 {
     while x.gt(&counter) {
         counter = counter.wrapping_add(&U256::ONE);
         fin = fin.mul_mod(g, n);
-        println!("{counter}, {fin}");
     }
     fin
 }
