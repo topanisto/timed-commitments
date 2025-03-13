@@ -1,6 +1,5 @@
 use crate::{CommitPhaseMsg, DEFAULT_R_BITS, TimedCommitment};
 use crate::{
-    get_order,
     protocol::{BITS, DEFAULT_B, DEFAULT_K},
     totient_slow, u256_exp_mod,
 };

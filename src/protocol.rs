@@ -1,7 +1,6 @@
 use std::fmt::Error;
 
 use crate::{committer::*, verifier::*};
-use crypto_bigint::{NonZero, U256};
 
 pub const DEFAULT_B: u32 = 128;
 pub const DEFAULT_K: u32 = 30;

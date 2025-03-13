@@ -34,7 +34,7 @@ mod tests {
     #[test]
     fn c_commit() {
         let msg = U256::from(42u32);
-        let mut committer = Committer::new(msg);
+        let committer = Committer::new(msg);
         assert!(committer.n.get() > U256::ONE);
         // Get the commitment
         // let commit_msg = committer.commit();
