@@ -5,7 +5,23 @@ use crypto_bigint::{
 };
 use crypto_primes::{generate_prime, is_prime};
 
-use crate::{get_order, totient_slow, u256_exp_mod};
+use crate::{
+    get_order,
+    protocol::{BITS, DEFAULT_B, DEFAULT_K},
+    totient_slow, u256_exp_mod,
+};
+
+pub struct TimedCommitment {
+    pub h: U256,
+    pub g: U256,
+    pub u: U256,
+    pub S: Vec<bool>,
+}
+
+pub struct CommitPhaseMsg {
+    pub commit: TimedCommitment,
+    pub W: Vec<U256>,
+}
 
 pub struct Committer {
     m: U256, //message to open to
@@ -22,15 +38,11 @@ pub struct Committer {
 }
 
 impl Committer {
-    const DEFAULT_B: u32 = 128;
-    const DEFAULT_K: u32 = 30;
-    const BITS: u32 = 16;
-
     pub fn new(m: U256) -> Self {
         let l = 256 - m.leading_zeros(); // length of msg
         let mut p1: U256;
         loop {
-            p1 = generate_prime(Self::BITS);
+            p1 = generate_prime(BITS);
             if p1.checked_rem(&U256::from(4u32)).unwrap() == U256::from(3u32) {
                 break;
             }
@@ -38,7 +50,7 @@ impl Committer {
 
         let mut p2: U256;
         loop {
-            p2 = generate_prime(Self::BITS);
+            p2 = generate_prime(BITS);
             if p2.checked_rem(&U256::from(4u32)).unwrap() == U256::from(3u32) {
                 break;
             }
@@ -56,7 +68,7 @@ impl Committer {
             p1,
             p2,
             n,
-            k: Self::DEFAULT_K,
+            k: DEFAULT_K,
             h,
             g,
             alphas: None,
@@ -64,19 +76,24 @@ impl Committer {
         }
     }
 
+    pub fn broadcast_n(&self) -> U256 {
+        *self.n
+    }
+
     // COMMIT PHASE
-    pub fn commit(&self) -> TimedCommitment {
+    pub fn commit(&self) -> CommitPhaseMsg {
         let u = self.generate_u(&self.g);
         let S = self.generate_S();
-        let W = self.generate_W(self.g);
+        let W = self.generate_W(self.g); // also send W
 
-        TimedCommitment {
-            committer: &self,
+        let commit = TimedCommitment {
             h: self.h,
             g: self.g,
             u,
             S,
-        } // send timed commitment to verifier, then rounds of interaction
+        };
+        CommitPhaseMsg { commit, W }
+        // send timed commitment to verifier, then rounds of interaction
     }
 
     fn generate_g(h: &U256, n: &NonZero<U256>, p1: U256, p2: U256) -> U256 {
@@ -85,7 +102,7 @@ impl Committer {
         let totient = NonZero::new(checked_totient.0.unwrap()).unwrap();
 
         // qi^n
-        let q_array: Vec<U256> = (1..Self::DEFAULT_B)
+        let q_array: Vec<U256> = (1..DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
                 true => {
                     let a = u256_exp_mod(&U256::from(x), n, &totient);
@@ -216,7 +233,7 @@ impl Committer {
         pairs
     }
 
-    pub fn c_response(&self, c: Vec<U256>) -> Vec<U256> {
+    pub fn challenge_response(&self, c: Vec<U256>) -> Vec<U256> {
         // zip and iter
         let q = self.q.unwrap();
         let q_tot = totient_slow(q.get());
@@ -270,12 +287,4 @@ impl Committer {
         let v_prime = u256_exp_mod(&self.h, &cur_exp, &self.n);
         v_prime
     }
-}
-
-pub struct TimedCommitment<'a> {
-    pub committer: &'a Committer, // committer address
-    pub h: U256,
-    pub g: U256,
-    pub u: U256,
-    pub S: Vec<bool>,
 }
