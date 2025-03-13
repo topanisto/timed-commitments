@@ -58,12 +58,11 @@ impl Committer {
         let checked_n = Checked::new(p1) * Checked::new(p2);
 
         let n = NonZero::new((checked_n.0).unwrap()).unwrap();
-        println!("n: {:?}", n); // 
 
         let h = U256::random_mod(&mut OsRng, &n);
-        println!("h: {:?}", h); // 
         let g = Self::generate_g(&h, &n, p1, p2);
 
+        println!("Committer initialized.");
         Self {
             m,
             l,
@@ -86,7 +85,9 @@ impl Committer {
     // COMMIT PHASE
     pub fn commit(&mut self) -> CommitPhaseMsg {
         let u = self.generate_u(&self.g);
+        println!("u");
         let S = self.generate_S();
+        println!("s");
         let W = self.generate_W(self.g); // also send W
 
         let commit = TimedCommitment {
@@ -106,38 +107,41 @@ impl Committer {
             * (Checked::new(p2) - Checked::new(U256::ONE));
         let totient = NonZero::new(checked_totient.0.unwrap()).unwrap();
 
-        println!("totient {:?}", totient);
-
         // qi^n
         let q_array: Vec<U256> = (1..DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
                 true => {
-                    let a = u256_exp_mod(&U256::from(x), &U256::from(BITS), &totient);
-                    Some(a)
+                    let a = (0..BITS).fold(U256::ONE, |acc, _| {
+                        (Checked::new(acc) * Checked::new(U256::from(x))).0.unwrap() % totient
+                    });
+                    Some(a % totient)
                 }
                 false => None,
             })
             .collect();
-        println!("qarray {:?}", q_array);
 
-        let exponent = q_array
-            .iter()
-            .fold(U256::ONE, |acc, x| acc.mul_mod(x, &totient));
+        let exponent = q_array.iter().fold(U256::ONE, |acc, x| {
+            (Checked::new(acc) * Checked::new(U256::from(x))).0.unwrap() % totient
+        });
 
         let mut counter = U256::ZERO;
         let mut g = U256::ONE;
 
+        println!("Generating g...");
         while exponent.gt(&counter) {
             counter = counter.wrapping_add(&U256::ONE);
             g = g.mul_mod(h, n);
         }
+
         g
     }
 
     fn generate_u(&self, g: &U256) -> U256 {
         // exponentiating
         let totient = self.totient_n();
-        let a = (0..self.k).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
+        let a = (0..self.k).fold(U256::from(2u32), |acc, _| {
+            (Checked::new(acc) * Checked::new(acc)).0.unwrap() % totient
+        });
         let u = u256_exp_mod(g, &a, &self.n);
         println!("generated u!");
         u
@@ -158,8 +162,11 @@ impl Committer {
             .collect::<Vec<bool>>();
 
         let totient = self.totient_n();
-        let mut cur_exp =
-            (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
+        let mut cur_exp = (0..(self.k)).fold(U256::from(2u32), |acc, _| {
+            (Checked::new(acc) * Checked::new(acc)).0.unwrap() % totient
+        });
+
+        // just divide
 
         let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(self.l), &totient)
             .inv_mod(&totient)

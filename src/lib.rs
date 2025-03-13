@@ -16,7 +16,7 @@ mod tests {
     fn utils_totient_slow() {
         let n = U256::from(5040u32);
         let a = totient_slow(n);
-        println!("{a}");
+        assert!(a.get() == U256::from(1152u32));
     }
 
     #[test]
@@ -26,7 +26,6 @@ mod tests {
         let q = U256::from(7u32);
 
         let k = get_order(&a, p, q);
-        println!("{k}");
         assert!(k == U256::from(48u32));
     }
 
@@ -37,23 +36,21 @@ mod tests {
         let n = NonZero::new(U256::from(11u32)).unwrap();
 
         let a = u256_exp_mod(&g, &x, &n);
-        println!("{a}");
         assert!(a == U256::from(1u32));
     }
 
     #[test]
     fn c_commit() {
         let msg = U256::from(42u32);
-        let committer = Committer::new(msg);
+        let mut committer = Committer::new(msg);
         assert!(committer.n.get() > U256::ONE);
-        // Get the commitment
-        // let commit_msg = committer.commit();
+        let commit_msg = committer.commit();
 
-        // assert!(!commit_msg.commit.h == U256::ZERO);
-        // assert!(!commit_msg.commit.g == U256::ZERO);
-        // assert!(!commit_msg.commit.u == U256::ZERO);
-        // assert!(!commit_msg.commit.S.is_empty());
+        assert!(!commit_msg.commit.h == U256::ZERO);
+        assert!(!commit_msg.commit.g == U256::ZERO);
+        assert!(!commit_msg.commit.u == U256::ZERO);
+        assert!(!commit_msg.commit.S.is_empty());
 
-        // assert_eq!(commit_msg.W.len(), (DEFAULT_K + 1) as usize);
+        assert_eq!(commit_msg.W.len(), (DEFAULT_K + 1) as usize);
     }
 }
