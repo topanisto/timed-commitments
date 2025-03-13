@@ -84,20 +84,26 @@ impl Committer {
             * (Checked::new(p2) - Checked::new(U256::ONE));
         let totient = NonZero::new(checked_totient.0.unwrap()).unwrap();
 
+        // qi^n
         let q_array: Vec<U256> = (1..Self::DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
-                true => Some(U256::from(x)),
+                true => {
+                    let a = u256_exp_mod(&U256::from(x), n, &totient);
+                    Some(a)
+                }
                 false => None,
             })
             .collect();
 
-        let mut exponent = q_array
+        let exponent = q_array
             .iter()
             .fold(U256::ONE, |acc, x| acc.mul_mod(x, &totient));
 
+        let mut counter = U256::ZERO;
         let mut g = U256::ONE;
-        while exponent != U256::ZERO {
-            exponent = exponent.wrapping_sub(&U256::ONE);
+
+        while exponent.gt(&counter) {
+            counter = counter.wrapping_add(&U256::ONE);
             g = g.mul_mod(h, n);
         }
         g
@@ -124,19 +130,25 @@ impl Committer {
 
         // TODO: you can get a directly
         let totient = self.totient_n();
-        let mut suffix =
-            (0..(self.k - self.l)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
+        let mut cur_exp =
+            (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
+
+        let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(self.l), &totient)
+            .inv_mod(&totient)
+            .unwrap();
+
+        cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
 
         // Generate sequence with tail u
         let mut S = Vec::with_capacity(256);
         // For each bit in reverse order (as per Python implementation)
         for i in (0..(self.l as usize)).rev() {
             // Get least significant bit of current
-            let lsb = Self::get_lsb(&suffix);
+            let lsb = Self::get_lsb(&cur_exp);
             // XOR with message bit
             S.push(m_bits[i] ^ lsb);
             // Square the current value for next iteration
-            suffix = suffix.mul_mod(&suffix, &self.n);
+            cur_exp = cur_exp.mul_mod(&cur_exp, &self.n);
         }
         S
     }
@@ -180,7 +192,7 @@ impl Committer {
     }
 }
 
-// verify commitments
+// VERIFY COMMITS
 impl Committer {
     pub fn binding_setup(&mut self, g: &U256, W: Vec<U256>) -> Vec<(U256, U256)> {
         // generate q, alphas
@@ -218,7 +230,9 @@ impl Committer {
             .enumerate()
             .map(|(idx, (ci, alphai))| {
                 let cbits = ci.mul_mod(&prev, &q);
-                let yi = alphai.add_mod(ci, &q);
+                let yi = alphai.add_mod(&cbits, &q);
+
+                // getting the next power of two
 
                 let mut counter = U256::ZERO;
                 let mut new = U256::ONE;
@@ -232,12 +246,29 @@ impl Committer {
                 }
                 prev = new; // change the base
                 power = power.mul_mod(&power, &q_tot);
-
                 yi
             })
             .collect();
 
         y
+    }
+}
+
+// OPEN
+impl Committer {
+    pub fn open(&self) -> U256 {
+        let totient = self.totient_n();
+        let mut cur_exp =
+            (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
+
+        let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(self.l), &totient)
+            .inv_mod(&totient)
+            .unwrap();
+
+        cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
+
+        let v_prime = u256_exp_mod(&self.h, &cur_exp, &self.n);
+        v_prime
     }
 }
 
