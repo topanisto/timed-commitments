@@ -67,3 +67,7 @@ pub fn u256_exp_mod(g: &U256, x: &U256, n: &NonZero<U256>) -> U256 {
     }
     fin
 }
+
+pub fn get_lsb(value: &U256) -> bool {
+    value & U256::ONE == U256::ONE
+}

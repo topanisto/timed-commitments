@@ -1,12 +1,12 @@
 // TODO: import module to get primes
 // import module to
 use crypto_bigint::{
-    AddMod, Checked, ConstZero, Constants, NonZero, RandomMod, U256, rand_core::OsRng,
+    AddMod, Checked, ConstChoice, ConstZero, Constants, NonZero, RandomMod, U256, rand_core::OsRng,
 };
 use crypto_primes::{generate_prime, is_prime};
 
 use crate::{
-    get_order,
+    get_lsb, get_order,
     protocol::{BITS, DEFAULT_B, DEFAULT_K},
     totient_slow, u256_exp_mod,
 };
@@ -35,6 +35,7 @@ pub struct Committer {
     // binding consts
     alphas: Option<Vec<U256>>,
     q: Option<NonZero<U256>>,
+    W: Option<Vec<U256>>,
 }
 
 impl Committer {
@@ -73,6 +74,7 @@ impl Committer {
             g,
             alphas: None,
             q: None,
+            W: None,
         }
     }
 
@@ -81,7 +83,7 @@ impl Committer {
     }
 
     // COMMIT PHASE
-    pub fn commit(&self) -> CommitPhaseMsg {
+    pub fn commit(&mut self) -> CommitPhaseMsg {
         let u = self.generate_u(&self.g);
         let S = self.generate_S();
         let W = self.generate_W(self.g); // also send W
@@ -92,6 +94,8 @@ impl Committer {
             u,
             S,
         };
+
+        self.W = Some(W.clone());
         CommitPhaseMsg { commit, W }
         // send timed commitment to verifier, then rounds of interaction
     }
@@ -105,7 +109,7 @@ impl Committer {
         let q_array: Vec<U256> = (1..DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
                 true => {
-                    let a = u256_exp_mod(&U256::from(x), n, &totient);
+                    let a = U256::from(x.pow(BITS)) % totient;
                     Some(a)
                 }
                 false => None,
@@ -138,14 +142,15 @@ impl Committer {
         // generate a psuedorandom sequence with tail u
         // let s_i = m_i xor lsb(g^2^(2^k-i) mod N)
 
-        let mut m_bits = Vec::with_capacity((self.l) as usize);
         let mut m_temp = self.m;
-        for _ in 0..self.l {
-            m_bits.push(Self::get_lsb(&m_temp));
-            m_temp = m_temp >> 1;
-        }
+        let m_bits = (0..self.l)
+            .map(|i| {
+                let cur_bit = m_temp.bit(0).into();
+                m_temp = m_temp >> 1;
+                cur_bit
+            })
+            .collect::<Vec<bool>>();
 
-        // TODO: you can get a directly
         let totient = self.totient_n();
         let mut cur_exp =
             (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
@@ -157,16 +162,15 @@ impl Committer {
         cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
 
         // Generate sequence with tail u
-        let mut S = Vec::with_capacity(256);
-        // For each bit in reverse order (as per Python implementation)
-        for i in (0..(self.l as usize)).rev() {
-            // Get least significant bit of current
-            let lsb = Self::get_lsb(&cur_exp);
-            // XOR with message bit
-            S.push(m_bits[i] ^ lsb);
-            // Square the current value for next iteration
-            cur_exp = cur_exp.mul_mod(&cur_exp, &self.n);
-        }
+        let S = (0..(self.l as usize))
+            .map(|i| {
+                let g_cur = u256_exp_mod(&self.g, &cur_exp, &self.n);
+                let lsb = g_cur.bit(0) == ConstChoice::TRUE;
+                cur_exp = cur_exp.mul_mod(&cur_exp, &self.n);
+
+                m_bits[i] ^ lsb
+            })
+            .collect::<Vec<bool>>();
         S
     }
 
@@ -203,25 +207,24 @@ impl Committer {
             * (Checked::new(self.p2) - Checked::new(U256::ONE));
         NonZero::new(checked_mul.0.unwrap()).unwrap()
     }
-
-    fn get_lsb(value: &U256) -> bool {
-        value & U256::ONE == U256::ONE
-    }
 }
 
 // VERIFY COMMITS
 impl Committer {
-    pub fn binding_setup(&mut self, g: &U256, W: Vec<U256>) -> Vec<(U256, U256)> {
+    pub fn binding_setup(&mut self) -> Vec<(U256, U256)> {
         // generate q, alphas
         let q0 = get_order(&self.g, self.p1, self.p2);
         let q = NonZero::new(q0).unwrap();
 
         let mut alphas: Vec<U256> = Vec::with_capacity((self.k) as usize);
-        let pairs = W
+        let pairs = self
+            .W
+            .as_ref()
+            .unwrap()
             .iter()
             .map(|b| {
                 let alpha = U256::random_mod(&mut OsRng, &q);
-                let z = u256_exp_mod(g, &alpha, &self.n);
+                let z = u256_exp_mod(&self.g, &alpha, &self.n);
                 let w = u256_exp_mod(b, &alpha, &self.n); // fold w actually
                 alphas.push(alpha);
                 (z, w)
