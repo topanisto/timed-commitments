@@ -1,8 +1,6 @@
 // TODO: import module to get primes
 // import module to
-use crypto_bigint::{
-    AddMod, Checked, ConstChoice, ConstZero, Constants, NonZero, RandomMod, U256, rand_core::OsRng,
-};
+use crypto_bigint::{Checked, ConstChoice, NonZero, RandomMod, U256, rand_core::OsRng};
 use crypto_primes::{generate_prime, is_prime};
 
 use crate::{
@@ -152,9 +150,9 @@ impl Committer {
 
         let mut m_temp = self.m;
         let m_bits = (0..self.l)
-            .map(|i| {
+            .map(|_| {
                 let cur_bit = m_temp.bit(0).into();
-                m_temp = m_temp >> 1;
+                m_temp >>= 1;
                 cur_bit
             })
             .collect::<Vec<bool>>();
@@ -170,7 +168,8 @@ impl Committer {
         cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
 
         // Generate sequence with tail u
-        let S = (0..(self.l as usize))
+
+        (0..(self.l as usize))
             .map(|i| {
                 let g_cur = u256_exp_mod(&self.g, &cur_exp, &self.n);
                 let lsb = g_cur.bit(0) == ConstChoice::TRUE;
@@ -178,8 +177,7 @@ impl Committer {
 
                 m_bits[i] ^ lsb
             })
-            .collect::<Vec<bool>>();
-        S
+            .collect::<Vec<bool>>()
     }
 
     fn generate_W(&self, g: U256) -> Vec<U256> {
@@ -295,7 +293,6 @@ impl Committer {
 
         cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
 
-        let v_prime = u256_exp_mod(&self.h, &cur_exp, &self.n);
-        v_prime
+        u256_exp_mod(&self.h, &cur_exp, &self.n)
     }
 }

@@ -17,7 +17,6 @@ mod tests {
         let n = U256::from(5040u32);
         let a = totient_slow(n);
         println!("{a}");
-        assert!(true);
     }
 
     #[test]

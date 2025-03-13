@@ -18,6 +18,12 @@ enum ProtocolState {
     ForceOpened,
 }
 
+impl Default for CommitmentProtocol {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommitmentProtocol {
     pub fn new() -> Self {
         Self {
@@ -57,11 +63,11 @@ impl CommitmentProtocol {
         }
     }
 
-    pub fn force_open(&mut self, c: &mut Committer, v: &mut Verifier) -> Result<(), Error> {
+    pub fn force_open(&mut self, v: &mut Verifier) -> Result<(), Error> {
         match self.state {
             ProtocolState::Committed => {
                 let m = v.forced_open();
-                println!("forced open complete");
+                println!("forced open complete to {m}");
                 self.state = ProtocolState::ForceOpened;
                 Ok(())
             }

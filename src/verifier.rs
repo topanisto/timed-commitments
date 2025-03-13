@@ -75,7 +75,7 @@ impl Verifier {
 
                 // z check
                 let gy = u256_exp_mod(&g, yi, &self.n);
-                let inv_b_prevc = u256_exp_mod(&b_cur, &ci, &self.n).inv_mod(&self.n).unwrap();
+                let inv_b_prevc = u256_exp_mod(&b_cur, ci, &self.n).inv_mod(&self.n).unwrap();
                 let zcheck = &gy.mul_mod(&inv_b_prevc, &self.n) == zi;
 
                 acc && wcheck && zcheck
