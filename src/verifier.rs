@@ -1,7 +1,9 @@
 pub struct Verifier {}
 
 impl Verifier {
-    pub fn verify_commit_phase() {}
+    pub fn verify_commit() -> bool {
+        true
+    }
 
     pub fn open() {}
 

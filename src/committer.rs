@@ -3,8 +3,6 @@
 use crypto_bigint::{Checked, ConstZero, Constants, NonZero, RandomMod, U256, rand_core::OsRng};
 use crypto_primes::{generate_prime, is_prime};
 
-use crate::{TimedCommitment, Verifier};
-
 pub struct Committer {
     m: U256, //message to open to
     l: u32,
@@ -54,14 +52,14 @@ impl Committer {
         }
     }
 
-    pub fn commit(&self, verifier: Verifier) -> TimedCommitment {
+    // COMMIT PHASE
+    pub fn commit(&self) -> TimedCommitment {
         let g = self.generate_g();
         let u = self.generate_u(g);
         let S = self.generate_S();
 
         TimedCommitment {
-            committer: self,
-            verifier: &Verifier {},
+            committer: &self,
             h: self.h,
             g,
             u,
@@ -69,9 +67,7 @@ impl Committer {
         }
     }
 
-    // COMMIT HELPERS
-
-    pub fn generate_g(&self) -> U256 {
+    fn generate_g(&self) -> U256 {
         let totient = self.totient_n();
         let q_array: Vec<U256> = (1..Self::DEFAULT_B)
             .filter_map(|x| match is_prime(&U256::from(x)) {
@@ -92,7 +88,7 @@ impl Committer {
         g
     }
 
-    pub fn generate_u(&self, g: U256) -> U256 {
+    fn generate_u(&self, g: U256) -> U256 {
         // exponentiating
         let a = self.get_a();
         let mut counter = U256::ZERO;
@@ -104,7 +100,7 @@ impl Committer {
         u
     }
 
-    pub fn generate_S(&self) -> Vec<bool> {
+    fn generate_S(&self) -> Vec<bool> {
         // convert M to bits
         // generate a psuedorandom sequence with tail u
         // let s_i = m_i xor lsb(g^2^(2^k-i) mod N)
@@ -135,7 +131,7 @@ impl Committer {
         S
     }
 
-    pub fn generate_W(&self, g: U256) -> Vec<U256> {
+    fn generate_W(&self, g: U256) -> Vec<U256> {
         let mut W = Vec::with_capacity(self.k as usize + 1);
 
         // First element is g^2 mod n
@@ -179,4 +175,12 @@ impl Committer {
     fn get_lsb(value: &U256) -> bool {
         value & U256::ONE == U256::ONE
     }
+}
+
+pub struct TimedCommitment<'a> {
+    pub committer: &'a Committer, // committer address
+    pub h: U256,
+    pub g: U256,
+    pub u: U256,
+    pub S: Vec<bool>,
 }
