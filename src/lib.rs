@@ -111,6 +111,7 @@ mod tests {
     }
     #[test]
     fn benchmark_open() {
+        println!("Benchmarking with k = {DEFAULT_K}, B = {DEFAULT_B}, lambda = {BITS}");
         let msg = U256::from(42u32);
         println!("msg: {msg}");
         let mut committer = Committer::new(msg);

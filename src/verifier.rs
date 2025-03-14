@@ -146,14 +146,16 @@ impl Verifier {
         let start = Instant::now();
         let v1 = self.open(v_prime);
         let open_duration = start.elapsed();
+        println!("open() took: {:?}", open_duration);
 
         // Benchmark forced_open()
+        println!("");
+        println!("Forced opening benchmark...");
         let start = Instant::now();
         let v2 = self.forced_open();
         let forced_duration = start.elapsed();
-
-        println!("open() took: {:?}", open_duration);
         println!("forced_open() took: {:?}", forced_duration);
+
         println!("Results match: {}", v1 == v2);
     }
 }
