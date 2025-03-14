@@ -1,12 +1,9 @@
 use std::time::Instant;
 
 use crate::{CommitPhaseMsg, DEFAULT_R_BITS, TimedCommitment};
-use crate::{
-    protocol::{BITS, DEFAULT_B, DEFAULT_K},
-    totient_slow, u256_exp_mod,
-};
-use crypto_bigint::{Checked, NonZero, U256};
-use crypto_primes::{generate_prime, is_prime};
+use crate::{protocol::DEFAULT_K, totient_slow, u256_exp_mod};
+use crypto_bigint::{NonZero, U256};
+use crypto_primes::generate_prime;
 
 pub struct Verifier {
     pub k: u32, // should be the same as
