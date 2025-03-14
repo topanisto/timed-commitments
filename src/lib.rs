@@ -46,9 +46,12 @@ mod tests {
         assert!(committer.n.get() > U256::ONE);
         let commit_msg = committer.commit();
 
-        assert!(!commit_msg.commit.h == U256::ZERO);
-        assert!(!commit_msg.commit.g == U256::ZERO);
-        assert!(!commit_msg.commit.u == U256::ZERO);
+        let S = &commit_msg.commit.S;
+        println!("S: {S:?}");
+
+        assert!(commit_msg.commit.h != U256::ZERO);
+        assert!(commit_msg.commit.g != U256::ZERO);
+        assert!(commit_msg.commit.u != U256::ZERO);
         assert!(!commit_msg.commit.S.is_empty());
 
         assert_eq!(commit_msg.W.len(), (DEFAULT_K + 1) as usize);

@@ -1,4 +1,4 @@
-use crypto_bigint::{Checked, NonZero, U256};
+use crypto_bigint::{Checked, Integer, NonZero, U256};
 
 pub fn get_order(a: &U256, p: U256, q: U256) -> U256 {
     let checked_n = Checked::new(p) * Checked::new(q);
@@ -65,7 +65,10 @@ pub fn u256_exp_mod(g: &U256, x: &U256, n: &NonZero<U256>) -> U256 {
     let mut fin = U256::ONE;
     while x.gt(&counter) {
         counter = counter.wrapping_add(&U256::ONE);
-        fin = fin.mul_mod(g, n);
+        fin = match bool::from(n.is_even()) {
+            true => (Checked::new(fin) * Checked::new(*g)).0.unwrap() % n,
+            false => fin.mul_mod(g, n),
+        }
     }
     fin
 }

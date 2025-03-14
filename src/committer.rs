@@ -60,6 +60,7 @@ impl Committer {
         let n = NonZero::new((checked_n.0).unwrap()).unwrap();
 
         let h = U256::random_mod(&mut OsRng, &n);
+
         let g = Self::generate_g(&h, &n, p1, p2);
 
         println!("Committer initialized.");
@@ -85,9 +86,7 @@ impl Committer {
     // COMMIT PHASE
     pub fn commit(&mut self) -> CommitPhaseMsg {
         let u = self.generate_u(&self.g);
-        println!("u");
         let S = self.generate_S();
-        println!("s");
         let W = self.generate_W(self.g); // also send W
 
         let commit = TimedCommitment {
@@ -162,17 +161,12 @@ impl Committer {
             .collect::<Vec<bool>>();
 
         let totient = self.totient_n();
-        let mut cur_exp = (0..(self.k)).fold(U256::from(2u32), |acc, _| {
-            (Checked::new(acc) * Checked::new(acc)).0.unwrap() % totient
-        });
-
-        // just divide
-
-        let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(self.l), &totient)
-            .inv_mod(&totient)
-            .unwrap();
-
-        cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
+        let two_k = U256::from(2u32.pow(self.k));
+        // Then subtract l
+        let exp = two_k.wrapping_sub(&U256::from(self.l));
+        // Finally calculate 2^exp mod totient using repeated squaring
+        let mut cur_exp = u256_exp_mod(&U256::from(2u32), &exp, &totient);
+        // calculate 2^2^(k-1), then multiply by 2^(2^(k-1) - l)
 
         // Generate sequence with tail u
 
@@ -209,7 +203,7 @@ impl Committer {
             }
             W.push(new);
             prev = new; // change the base
-            power = power.mul_mod(&power, &totient);
+            power = (Checked::new(power) * Checked::new(power)).0.unwrap() % totient;
         }
         W
     }
