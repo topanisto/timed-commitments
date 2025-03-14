@@ -34,6 +34,7 @@ pub struct Committer {
     alphas: Option<Vec<U256>>,
     q: Option<NonZero<U256>>,
     W: Option<Vec<U256>>,
+    v_exp: U256, // unsure if this is necessary
 }
 
 impl Committer {
@@ -63,6 +64,19 @@ impl Committer {
 
         let g = Self::generate_g(&h, &n, p1, p2);
 
+        let totient = NonZero::new(
+            n.get()
+                .wrapping_sub(&p1.wrapping_add(&p2))
+                .wrapping_add(&U256::ONE),
+        )
+        .unwrap();
+
+        let two_k = U256::from(2u32.pow(DEFAULT_K));
+        // Then subtract l
+        let exp = two_k.wrapping_sub(&U256::from(l));
+        // Finally calculate 2^exp mod totient using repeated squaring
+        let v_exp = u256_exp_mod(&U256::from(2u32), &exp, &totient);
+
         println!("Committer initialized.");
         Self {
             m,
@@ -76,6 +90,7 @@ impl Committer {
             alphas: None,
             q: None,
             W: None,
+            v_exp,
         }
     }
 
@@ -97,6 +112,7 @@ impl Committer {
         };
 
         self.W = Some(W.clone());
+        println!("Commitment sent.");
         CommitPhaseMsg { commit, W }
         // send timed commitment to verifier, then rounds of interaction
     }
@@ -142,7 +158,6 @@ impl Committer {
             (Checked::new(acc) * Checked::new(acc)).0.unwrap() % totient
         });
         let u = u256_exp_mod(g, &a, &self.n);
-        println!("generated u!");
         u
     }
 
@@ -160,12 +175,7 @@ impl Committer {
             })
             .collect::<Vec<bool>>();
 
-        let totient = self.totient_n();
-        let two_k = U256::from(2u32.pow(self.k));
-        // Then subtract l
-        let exp = two_k.wrapping_sub(&U256::from(self.l));
-        // Finally calculate 2^exp mod totient using repeated squaring
-        let mut cur_exp = u256_exp_mod(&U256::from(2u32), &exp, &totient);
+        let mut cur_exp = self.v_exp.clone();
         // calculate 2^2^(k-1), then multiply by 2^(2^(k-1) - l)
 
         // Generate sequence with tail u
@@ -221,16 +231,15 @@ impl Committer {
     pub fn binding_setup(&mut self) -> Vec<(U256, U256)> {
         // generate q, alphas
         let q0 = get_order(&self.g, self.p1, self.p2);
+        println!("{q0}");
         let q = NonZero::new(q0).unwrap();
 
         let mut alphas: Vec<U256> = Vec::with_capacity((self.k) as usize);
-        let pairs = self
-            .W
-            .as_ref()
-            .unwrap()
+        let pairs = self.W.as_ref().unwrap()[1..]
             .iter()
             .map(|b| {
                 let alpha = U256::random_mod(&mut OsRng, &q);
+                println!("{alpha}");
                 let z = u256_exp_mod(&self.g, &alpha, &self.n);
                 let w = u256_exp_mod(b, &alpha, &self.n); // fold w actually
                 alphas.push(alpha);
@@ -284,16 +293,7 @@ impl Committer {
 // OPEN
 impl Committer {
     pub fn open(&self) -> U256 {
-        let totient = self.totient_n();
-        let mut cur_exp =
-            (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
-
-        let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(self.l), &totient)
-            .inv_mod(&totient)
-            .unwrap();
-
-        cur_exp = cur_exp.mul_mod(&inv_to_start, &totient);
-
-        u256_exp_mod(&self.h, &cur_exp, &self.n)
+        assert!(self.W.is_some());
+        u256_exp_mod(&self.h, &self.v_exp, &self.n)
     }
 }

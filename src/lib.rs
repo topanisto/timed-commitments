@@ -56,4 +56,42 @@ mod tests {
 
         assert_eq!(commit_msg.W.len(), (DEFAULT_K + 1) as usize);
     }
+
+    #[test]
+    fn c_open() {
+        let msg = U256::from(42u32);
+        let mut committer = Committer::new(msg);
+        committer.commit();
+        let v_prime = committer.open();
+        println!("v': {v_prime:?}");
+    }
+
+    #[test]
+    fn verify_binding() {
+        let msg = U256::from(42u32);
+        let mut committer = Committer::new(msg);
+        let mut verifier = Verifier::new(committer.n);
+        let commit_msg = committer.commit();
+        verifier.receive_timed_commitment(commit_msg);
+
+        let zw_pairs = committer.binding_setup();
+        let c = verifier.get_challenges();
+        let y = committer.challenge_response(c);
+        assert!(verifier.verify_commit_zkp(y, zw_pairs));
+    }
+
+    #[test]
+    fn interactive_open() {
+        let msg = U256::from(42u32);
+        let mut committer = Committer::new(msg);
+        let mut verifier = Verifier::new(committer.n);
+        let commit_msg = committer.commit();
+        verifier.receive_timed_commitment(commit_msg); // skip binding verification
+
+        let v_prime = committer.open();
+        let opened_msg = verifier.open(v_prime);
+        println!("{opened_msg}");
+
+        assert!(opened_msg == msg);
+    }
 }
