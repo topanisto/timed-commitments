@@ -5,7 +5,7 @@ use crate::{
     protocol::{BITS, DEFAULT_B, DEFAULT_K},
     totient_slow, u256_exp_mod,
 };
-use crypto_bigint::{NonZero, U256};
+use crypto_bigint::{Checked, NonZero, U256};
 use crypto_primes::{generate_prime, is_prime};
 
 pub struct Verifier {
@@ -86,14 +86,37 @@ impl Verifier {
             })
             .collect();
 
-        // first state
-        let mut v = q_array_base.iter().fold(v_prime, |acc, qin| {
+        let v = q_array_base.iter().fold(v_prime, |acc, qin| {
             (0..BITS).fold(acc, |a, _| u256_exp_mod(&a, qin, &self.n))
         });
 
-        println!("v: {v}");
         assert!(v == u);
-        // we want to go backwards
+        self.msg_from_v(v)
+    }
+
+    pub fn forced_open(&self) -> U256 {
+        println!("Starting force opening...");
+        let S = &self.timed_commitment.as_ref().unwrap().S;
+        let l = S.len();
+        let g = self.timed_commitment.as_ref().unwrap().g;
+        let u = self.timed_commitment.as_ref().unwrap().u;
+
+        let totient = totient_slow(*self.n);
+
+        let two_k = U256::from(2u32.pow(self.k));
+        let exp = two_k.wrapping_sub(&U256::from(l as u32));
+        let g_exp = u256_exp_mod(&U256::from(2u32), &exp, &totient);
+
+        let v = u256_exp_mod(&g, &g_exp, &self.n);
+
+        println!("Extracted v: {v}");
+        assert!(v == u);
+        self.msg_from_v(v)
+    }
+
+    fn msg_from_v(&self, mut v: U256) -> U256 {
+        let S = &self.timed_commitment.as_ref().unwrap().S;
+        let l = S.len();
         let R = (0..l)
             .map(|_| {
                 let ri = v.bit(0).into();
@@ -118,26 +141,5 @@ impl Verifier {
                 });
 
         m
-    }
-
-    pub fn forced_open(&self) -> U256 {
-        let l = self.timed_commitment.as_ref().unwrap().S.len();
-        let totient = totient_slow(*self.n); // TODO: remove this if too slow, just worried about overflow
-        // get
-        let mut exp = (0..(self.k)).fold(U256::from(2u32), |acc, _| acc.mul_mod(&acc, &totient));
-
-        let inv_to_start = u256_exp_mod(&U256::from(2u32), &U256::from(l as u32), &totient)
-            .inv_mod(&totient)
-            .unwrap();
-
-        exp = exp.mul_mod(&inv_to_start, &totient);
-        let mut counter = U256::ZERO;
-        let mut v = U256::ONE;
-
-        while exp.gt(&counter) {
-            v = v.mul_mod(&v, &self.n);
-            counter = counter.wrapping_add(&U256::ONE);
-        }
-        v
     }
 }

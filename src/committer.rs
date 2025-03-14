@@ -231,7 +231,6 @@ impl Committer {
     pub fn binding_setup(&mut self) -> Vec<(U256, U256)> {
         // generate q, alphas
         let q0 = get_order(&self.g, self.p1, self.p2);
-        println!("{q0}");
         let q = NonZero::new(q0).unwrap();
 
         let mut alphas: Vec<U256> = Vec::with_capacity((self.k) as usize);
@@ -239,7 +238,6 @@ impl Committer {
             .iter()
             .map(|b| {
                 let alpha = U256::random_mod(&mut OsRng, &q);
-                println!("{alpha}");
                 let z = u256_exp_mod(&self.g, &alpha, &self.n);
                 let w = u256_exp_mod(b, &alpha, &self.n); // fold w actually
                 alphas.push(alpha);
