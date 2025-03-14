@@ -3,7 +3,7 @@ use std::fmt::Error;
 use crate::{committer::*, verifier::*};
 
 pub const DEFAULT_B: u32 = 128;
-pub const DEFAULT_K: u32 = 7;
+pub const DEFAULT_K: u32 = 20;
 pub const BITS: u32 = 5;
 pub const DEFAULT_R_BITS: u32 = 10;
 

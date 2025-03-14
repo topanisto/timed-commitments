@@ -97,7 +97,6 @@ mod tests {
     }
 
     #[test]
-
     fn force_open() {
         let msg = U256::from(42u32);
         println!("msg: {msg}");
@@ -109,5 +108,17 @@ mod tests {
         let force_opened_msg = verifier.forced_open();
         println!("force_opened_msg: {force_opened_msg}");
         assert!(force_opened_msg == msg);
+    }
+    #[test]
+    fn benchmark_open() {
+        let msg = U256::from(42u32);
+        println!("msg: {msg}");
+        let mut committer = Committer::new(msg);
+        let mut verifier = Verifier::new(committer.n);
+        let commit_msg = committer.commit();
+        verifier.receive_timed_commitment(commit_msg); // skip binding verification
+
+        let v_prime = committer.open();
+        verifier.benchmark_opening(v_prime);
     }
 }

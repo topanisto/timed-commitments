@@ -19,6 +19,7 @@ pub struct TimedCommitment {
 pub struct CommitPhaseMsg {
     pub commit: TimedCommitment,
     pub W: Vec<U256>,
+    pub exp_primes: U256,
 }
 
 pub struct Committer {
@@ -35,6 +36,7 @@ pub struct Committer {
     q: Option<NonZero<U256>>,
     W: Option<Vec<U256>>,
     v_exp: U256, // unsure if this is necessary
+    exp_primes: U256,
 }
 
 impl Committer {
@@ -62,7 +64,7 @@ impl Committer {
 
         let h = U256::random_mod(&mut OsRng, &n);
 
-        let g = Self::generate_g(&h, &n, p1, p2);
+        let (g, exp_primes) = Self::generate_g(&h, &n, p1, p2);
 
         let totient = NonZero::new(
             n.get()
@@ -91,6 +93,7 @@ impl Committer {
             q: None,
             W: None,
             v_exp,
+            exp_primes,
         }
     }
 
@@ -112,12 +115,17 @@ impl Committer {
         };
 
         self.W = Some(W.clone());
+
         println!("Commitment sent.");
-        CommitPhaseMsg { commit, W }
+        CommitPhaseMsg {
+            commit,
+            W,
+            exp_primes: self.exp_primes,
+        }
         // send timed commitment to verifier, then rounds of interaction
     }
 
-    fn generate_g(h: &U256, n: &NonZero<U256>, p1: U256, p2: U256) -> U256 {
+    fn generate_g(h: &U256, n: &NonZero<U256>, p1: U256, p2: U256) -> (U256, U256) {
         let checked_totient = (Checked::new(p1) - Checked::new(U256::ONE))
             * (Checked::new(p2) - Checked::new(U256::ONE));
         let totient = NonZero::new(checked_totient.0.unwrap()).unwrap();
@@ -148,7 +156,7 @@ impl Committer {
             g = g.mul_mod(h, n);
         }
 
-        g
+        (g, exponent)
     }
 
     fn generate_u(&self, g: &U256) -> U256 {

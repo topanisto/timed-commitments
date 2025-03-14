@@ -1,4 +1,4 @@
-use std::sync::ONCE_INIT;
+use std::time::Instant;
 
 use crate::{CommitPhaseMsg, DEFAULT_R_BITS, TimedCommitment};
 use crate::{
@@ -15,6 +15,7 @@ pub struct Verifier {
     timed_commitment: Option<TimedCommitment>,
     W: Option<Vec<U256>>,
     c: Option<Vec<U256>>,
+    v_exp: Option<U256>,
 }
 
 impl Verifier {
@@ -28,12 +29,14 @@ impl Verifier {
             timed_commitment: None,
             W: None,
             c: None,
+            v_exp: None,
         }
     }
 
     pub fn receive_timed_commitment(&mut self, commit_msg: CommitPhaseMsg) {
         self.timed_commitment = Some(commit_msg.commit);
         self.W = Some(commit_msg.W);
+        self.v_exp = Some(commit_msg.exp_primes)
     }
 
     pub fn can_open(&self) -> bool {
@@ -78,18 +81,9 @@ impl Verifier {
         let S = &self.timed_commitment.as_ref().unwrap().S;
         let l = S.len();
         let u = self.timed_commitment.as_ref().unwrap().u;
+        let v_exp = self.v_exp.as_ref().unwrap();
 
-        let q_array_base: Vec<U256> = (1..DEFAULT_B)
-            .filter_map(|x| match is_prime(&U256::from(x)) {
-                true => Some(U256::from(x)),
-                false => None,
-            })
-            .collect();
-
-        let v = q_array_base.iter().fold(v_prime, |acc, qin| {
-            (0..BITS).fold(acc, |a, _| u256_exp_mod(&a, qin, &self.n))
-        });
-
+        let v = u256_exp_mod(&v_prime, v_exp, &self.n);
         assert!(v == u);
         self.msg_from_v(v)
     }
@@ -141,5 +135,28 @@ impl Verifier {
                 });
 
         m
+    }
+}
+
+// BENCHMARKING
+impl Verifier {
+    pub fn benchmark_opening(&self, v_prime: U256) {
+        // Warm up the cache
+        let _ = self.open(v_prime);
+        let _ = self.forced_open();
+
+        // Benchmark open()
+        let start = Instant::now();
+        let v1 = self.open(v_prime);
+        let open_duration = start.elapsed();
+
+        // Benchmark forced_open()
+        let start = Instant::now();
+        let v2 = self.forced_open();
+        let forced_duration = start.elapsed();
+
+        println!("open() took: {:?}", open_duration);
+        println!("forced_open() took: {:?}", forced_duration);
+        println!("Results match: {}", v1 == v2);
     }
 }
