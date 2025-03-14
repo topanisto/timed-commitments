@@ -92,7 +92,6 @@ impl Verifier {
         });
 
         println!("v: {v}");
-        println!("{u}");
         assert!(v == u);
         // we want to go backwards
         let R = (0..l)

@@ -83,6 +83,7 @@ mod tests {
     #[test]
     fn interactive_open() {
         let msg = U256::from(42u32);
+        println!("msg: {msg}");
         let mut committer = Committer::new(msg);
         let mut verifier = Verifier::new(committer.n);
         let commit_msg = committer.commit();
@@ -90,7 +91,7 @@ mod tests {
 
         let v_prime = committer.open();
         let opened_msg = verifier.open(v_prime);
-        println!("{opened_msg}");
+        println!("opened_msg: {opened_msg}");
 
         assert!(opened_msg == msg);
     }
