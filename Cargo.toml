@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 crypto-bigint = "0.6.1"
 crypto-primes = "0.6.2"
+witness-encryption-functional-commitment = { git = "https://github.com/novus677/witness-encryption-functional-commitment" }
