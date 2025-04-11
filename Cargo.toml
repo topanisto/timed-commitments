@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 crypto-bigint = "0.6.1"
 crypto-primes = "0.6.2"
+getrandom = { version = "0.3.2", features = ["wasm_js"] }
+rand = "0.9.0"
