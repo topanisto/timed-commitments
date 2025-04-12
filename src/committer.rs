@@ -1,5 +1,3 @@
-// TODO: import module to get primes
-// import module to
 use crypto_bigint::{Checked, ConstChoice, NonZero, RandomMod, U256, rand_core::OsRng};
 use crypto_primes::{generate_prime, is_prime};
 
@@ -9,19 +7,23 @@ use crate::{
     totient_slow, u256_exp_mod,
 };
 
+/// A timed commitment containing the necessary parameters for the commitment scheme.
+/// See the paper for detailed explanations here: https://crypto.stanford.edu/~dabo/abstracts/timedcommit.html
 pub struct TimedCommitment {
-    pub h: U256,
-    pub g: U256,
-    pub u: U256,
-    pub S: Vec<bool>,
+    pub h: U256,      // Random base element
+    pub g: U256,      // Generated base element
+    pub u: U256,      // Tail of psuedorandom blinding sequence
+    pub S: Vec<bool>, // The obfuscated message
 }
 
+/// Message sent during the commit phase containing the commitment and verification parameters
 pub struct CommitPhaseMsg {
     pub commit: TimedCommitment,
-    pub W: Vec<U256>,
-    pub exp_primes: U256,
+    pub W: Vec<U256>, // Verification vector containing exponentiations g^2^2^i of g
+    pub exp_primes: U256, // Product of prime exponents used in generating g
 }
 
+/// The main struct handling the commitment operations
 pub struct Committer {
     m: U256, //message to open to
     l: u32,
@@ -35,11 +37,15 @@ pub struct Committer {
     alphas: Option<Vec<U256>>,
     q: Option<NonZero<U256>>,
     W: Option<Vec<U256>>,
-    v_exp: U256, // unsure if this is necessary
+    v_exp: U256,
     exp_primes: U256,
 }
 
 impl Committer {
+    /// Creates a new Committer instance with the given message to be committed
+    ///
+    /// # Arguments
+    /// * `m` - The message to commit to, represented as a U256
     pub fn new(m: U256) -> Self {
         let l = 256 - m.leading_zeros(); // length of msg
         let mut p1: U256;
@@ -74,9 +80,11 @@ impl Committer {
         .unwrap();
 
         let two_k = U256::from(2u32.pow(DEFAULT_K));
-        // Then subtract l
+        // then subtract l
         let exp = two_k.wrapping_sub(&U256::from(l));
-        // Finally calculate 2^exp mod totient using repeated squaring
+        // finally calculate 2^exp mod totient using repeated squaring-- this is the
+        // starting XOR power of g for the commitment.
+
         let v_exp = u256_exp_mod(&U256::from(2u32), &exp, &totient);
 
         println!("Committer initialized.");
@@ -97,15 +105,17 @@ impl Committer {
         }
     }
 
+    /// Returns the modulus N used in the commitment scheme
     pub fn broadcast_n(&self) -> U256 {
         *self.n
     }
 
-    // COMMIT PHASE
+    /// Performs the commitment phase of the protocol
+    /// Returns a CommitPhaseMsg containing the commitment and verification parameters
     pub fn commit(&mut self) -> CommitPhaseMsg {
         let u = self.generate_u(&self.g);
         let S = self.generate_S();
-        let W = self.generate_W(self.g); // also send W
+        let W = self.generate_W(self.g);
 
         let commit = TimedCommitment {
             h: self.h,
@@ -125,6 +135,16 @@ impl Committer {
         // send timed commitment to verifier, then rounds of interaction
     }
 
+    /// Generates the base element g using the specified parameters
+    ///
+    /// # Arguments
+    /// * `h` - Random base element
+    /// * `n` - Modulus
+    /// * `p1` - First prime factor of n
+    /// * `p2` - Second prime factor of n
+    ///
+    /// # Returns
+    /// A tuple containing the generated g and the product of prime exponents used
     fn generate_g(h: &U256, n: &NonZero<U256>, p1: U256, p2: U256) -> (U256, U256) {
         let checked_totient = (Checked::new(p1) - Checked::new(U256::ONE))
             * (Checked::new(p2) - Checked::new(U256::ONE));
@@ -159,6 +179,7 @@ impl Committer {
         (g, exponent)
     }
 
+    /// Generates the tail element u of the commitment sequence
     fn generate_u(&self, g: &U256) -> U256 {
         // exponentiating
         let totient = self.totient_n();
@@ -169,6 +190,8 @@ impl Committer {
         u
     }
 
+    /// Generates the commitment sequence S by XORing the message bits with
+    /// the least significant bits of successive powers
     fn generate_S(&self) -> Vec<bool> {
         // convert M to bits
         // generate a psuedorandom sequence with tail u
@@ -199,6 +222,7 @@ impl Committer {
             .collect::<Vec<bool>>()
     }
 
+    /// Generates the verification chain W used in the binding property verification
     fn generate_W(&self, g: U256) -> Vec<U256> {
         let mut W = Vec::with_capacity(self.k as usize + 1);
 
@@ -236,6 +260,8 @@ impl Committer {
 
 // VERIFY COMMITS
 impl Committer {
+    /// Sets up the parameters needed for the binding property verification
+    /// Returns pairs of (z, w) values used in the verification protocol
     pub fn binding_setup(&mut self) -> Vec<(U256, U256)> {
         // generate q, alphas
         let q0 = get_order(&self.g, self.p1, self.p2);
@@ -258,6 +284,10 @@ impl Committer {
         pairs
     }
 
+    /// Generates responses to the binding verification challenges
+    ///
+    /// # Arguments
+    /// * `c` - Vector of challenge values from the verifier
     pub fn challenge_response(&self, c: Vec<U256>) -> Vec<U256> {
         // zip and iter
         let q = self.q.unwrap();
@@ -298,6 +328,8 @@ impl Committer {
 
 // OPEN
 impl Committer {
+    /// Opens the commitment by revealing the necessary information
+    /// Returns the opening value that allows verification of the commitment
     pub fn open(&self) -> U256 {
         assert!(self.W.is_some());
         u256_exp_mod(&self.h, &self.v_exp, &self.n)
