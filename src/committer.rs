@@ -217,8 +217,9 @@ impl Committer {
                 let lsb = g_cur.bit(0) == ConstChoice::TRUE;
                 cur_exp = cur_exp.mul_mod(&cur_exp, &self.n);
 
-                m_bits[i] ^ lsb
+                m_bits[self.l as usize - 1 - i] ^ lsb
             })
+            .rev()
             .collect::<Vec<bool>>()
     }
 
