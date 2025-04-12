@@ -1,6 +1,6 @@
 Boneh-Naor Timed Commitments
 ---
-A Rust implementation of Boneh-Naor Timed Commitments! **This is a proof of concept.** Read 'rough edges' to see the current list of glaring issues.
+A Rust implementation of Boneh-Naor Timed Commitments! **This is a proof of concept.** Read 'rough edges' to see the current list of vulnerabilities.
 
 Run `cargo test benchmark -- --nocapture` to simulate an exchange.
 
